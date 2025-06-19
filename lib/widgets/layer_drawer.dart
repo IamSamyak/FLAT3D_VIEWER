@@ -33,6 +33,7 @@ class LayerDrawer extends StatelessWidget {
         // Sliding Drawer
         AnimatedPositioned(
           duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
           top: 0,
           bottom: 0,
           left: isDrawerOpen ? 0 : -drawerWidth,
@@ -55,8 +56,14 @@ class LayerDrawer extends StatelessWidget {
                       return GestureDetector(
                         onTap: () => onLayerSelected(index),
                         child: Container(
-                          color: isSelected ? Colors.blue[100] : Colors.transparent,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          color:
+                              isSelected
+                                  ? Colors.blue[100]
+                                  : Colors.transparent,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
                           child: Row(
                             children: [
                               Expanded(
@@ -64,16 +71,26 @@ class LayerDrawer extends StatelessWidget {
                                   layer.name,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    fontWeight:
+                                        isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
                                   ),
                                 ),
                               ),
                               IconButton(
-                                icon: Icon(layer.isLocked ? Icons.lock : Icons.lock_open, size: 20),
+                                icon: Icon(
+                                  layer.isLocked ? Icons.lock : Icons.lock_open,
+                                  size: 20,
+                                ),
                                 onPressed: () => onToggleLock(index),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  size: 20,
+                                  color: Colors.red,
+                                ),
                                 onPressed: () => onDeleteLayer(index),
                               ),
                             ],
@@ -97,24 +114,33 @@ class LayerDrawer extends StatelessWidget {
           ),
         ),
 
-        // Extruded Toggle Button
-        Positioned(
-          top: MediaQuery.of(context).size.height / 2 - 30,
+        // Updated Animated Toggle Button
+        // Polished Toggle Button with consistent border radius and lowered position
+        AnimatedPositioned(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          // top: MediaQuery.of(context).size.height / 2 + 35,
+          bottom: MediaQuery.of(context).size.height / 2 + 35,
           left: isDrawerOpen ? drawerWidth : 0,
           child: GestureDetector(
             onTap: onToggleDrawer,
             child: Container(
-              width: 20,
-              height: 60,
+              width: 36,
+              height: 70,
               decoration: BoxDecoration(
-                color: Colors.blue,
-                borderRadius: BorderRadius.circular(4),
-                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2)],
+                color: Colors.blueAccent,
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(6),
+                  bottomRight: Radius.circular(6),
+                ),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 4),
+                ],
               ),
               alignment: Alignment.center,
               child: Icon(
-                isDrawerOpen ? Icons.arrow_back_ios : Icons.arrow_forward_ios,
-                size: 14,
+                isDrawerOpen ? Icons.chevron_left : Icons.chevron_right,
+                size: 28,
                 color: Colors.white,
               ),
             ),

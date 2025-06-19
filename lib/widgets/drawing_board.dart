@@ -178,6 +178,7 @@ class _DrawingBoardState extends State<DrawingBoard> {
  @override
 Widget build(BuildContext context) {
   return Scaffold(
+    backgroundColor: Colors.white,
     body: Stack(
       children: [
         // Drawing area
@@ -247,16 +248,13 @@ Widget build(BuildContext context) {
             ignoring: false,
             child: Align(
               alignment: Alignment.bottomRight,
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: FloatingCircularToolbar(
-                  currentTool: _toolMode,
-                  onToolSelected: (mode) {
-                    setState(() {
-                      _toolMode = mode;
-                    });
-                  },
-                ),
+              child: FloatingCircularToolbar(
+                currentTool: _toolMode,
+                onToolSelected: (mode) {
+                  setState(() {
+                    _toolMode = mode;
+                  });
+                },
               ),
             ),
           ),

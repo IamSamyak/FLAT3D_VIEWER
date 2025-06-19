@@ -11,9 +11,19 @@ void main() async {
   ]);
 
   runApp(
-    const MaterialApp(
-      home: DrawingBoard(),
+    MaterialApp(
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.white,
+          brightness: Brightness.light,
+          background: Colors.white,
+        ),
+        scaffoldBackgroundColor: Colors.white,
+        useMaterial3: false, // Optional: disables Material3 defaults
+      ),
+      home: const DrawingBoard(),
     ),
   );
 }
+
