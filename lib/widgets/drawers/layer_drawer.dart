@@ -1,6 +1,6 @@
 // file: widgets/layer_drawer.dart
 import 'package:flutter/material.dart';
-import '../models/drawing_layer.dart';
+import '../../models/drawing_layer.dart';
 
 class LayerDrawer extends StatelessWidget {
   final List<DrawingLayer> layers;
@@ -30,7 +30,6 @@ class LayerDrawer extends StatelessWidget {
 
     return Stack(
       children: [
-        // Sliding Drawer
         AnimatedPositioned(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
@@ -56,14 +55,8 @@ class LayerDrawer extends StatelessWidget {
                       return GestureDetector(
                         onTap: () => onLayerSelected(index),
                         child: Container(
-                          color:
-                              isSelected
-                                  ? Colors.blue[100]
-                                  : Colors.transparent,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
+                          color: isSelected ? Colors.blue[100] : Colors.transparent,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           child: Row(
                             children: [
                               Expanded(
@@ -71,10 +64,7 @@ class LayerDrawer extends StatelessWidget {
                                   layer.name,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    fontWeight:
-                                        isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                   ),
                                 ),
                               ),
@@ -85,14 +75,6 @@ class LayerDrawer extends StatelessWidget {
                                 ),
                                 onPressed: () => onToggleLock(index),
                               ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  size: 20,
-                                  color: Colors.red,
-                                ),
-                                onPressed: () => onDeleteLayer(index),
-                              ),
                             ],
                           ),
                         ),
@@ -102,11 +84,59 @@ class LayerDrawer extends StatelessWidget {
                 ),
                 Padding(
                   padding: const EdgeInsets.all(8.0),
-                  child: FloatingActionButton(
-                    onPressed: onAddLayer,
-                    mini: true,
-                    tooltip: 'Add Layer',
-                    child: const Icon(Icons.add),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Delete selected layer button
+                      IconButton(
+                        tooltip: 'Delete Selected Layer',
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () async {
+                          if (layers.isEmpty) return;
+
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Delete Layer?'),
+                              content: Text(
+                                'Are you sure you want to delete "${layers[activeLayerIndex].name}"?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text(
+                                    'Delete',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (confirmed == true) {
+                            onDeleteLayer(activeLayerIndex);
+                          }
+                        },
+                      ),
+
+                      // Add layer button
+                      ElevatedButton(
+                        onPressed: onAddLayer,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text('Add'),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -114,13 +144,11 @@ class LayerDrawer extends StatelessWidget {
           ),
         ),
 
-        // Updated Animated Toggle Button
-        // Polished Toggle Button with consistent border radius and lowered position
+        // Toggle Drawer Button
         AnimatedPositioned(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
-          // top: MediaQuery.of(context).size.height / 2 + 35,
-          bottom: MediaQuery.of(context).size.height / 2 + 35,
+          bottom: MediaQuery.of(context).size.height / 2 + 40,
           left: isDrawerOpen ? drawerWidth : 0,
           child: GestureDetector(
             onTap: onToggleDrawer,
@@ -133,9 +161,7 @@ class LayerDrawer extends StatelessWidget {
                   topRight: Radius.circular(6),
                   bottomRight: Radius.circular(6),
                 ),
-                boxShadow: const [
-                  BoxShadow(color: Colors.black26, blurRadius: 4),
-                ],
+                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
               ),
               alignment: Alignment.center,
               child: Icon(

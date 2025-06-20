@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../models/line_segment.dart';
 import '../models/line.dart';
 import '../models/rectangle_shape.dart';
 import '../models/circle_shape.dart';

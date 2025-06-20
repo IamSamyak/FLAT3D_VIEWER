@@ -1,17 +1,15 @@
-// file: screens/drawing_board.dart
-import 'package:flat3d_viewer/models/tool_mode.dart';
-import 'package:flat3d_viewer/widgets/floating_circular_toolbar.dart';
-import 'package:flat3d_viewer/widgets/layer_drawer.dart';
 import 'package:flutter/material.dart';
-import '../models/line_segment.dart';
-import '../models/line.dart';
-import '../models/rectangle_shape.dart';
-import '../models/circle_shape.dart';
-import '../models/ellipse_shape.dart';
-import '../models/drawing_layer.dart';
-import '../widgets/left_toolbar.dart';
-import '../services/drawing_service.dart';
-import '../widgets/drawing_painter.dart';
+import 'package:flat3d_viewer/models/tool_mode.dart';
+import 'package:flat3d_viewer/models/view_mode.dart';
+import 'package:flat3d_viewer/models/line_segment.dart';
+import 'package:flat3d_viewer/models/line.dart';
+import 'package:flat3d_viewer/models/rectangle_shape.dart';
+import 'package:flat3d_viewer/models/circle_shape.dart';
+import 'package:flat3d_viewer/models/ellipse_shape.dart';
+import 'package:flat3d_viewer/models/drawing_layer.dart';
+import 'package:flat3d_viewer/services/drawing_service.dart';
+import 'package:flat3d_viewer/widgets/drawing_painter.dart';
+import 'package:flat3d_viewer/widgets/drawing_board_drawers.dart';
 
 class DrawingBoard extends StatefulWidget {
   const DrawingBoard({super.key});
@@ -24,14 +22,17 @@ class _DrawingBoardState extends State<DrawingBoard> {
   final double gridSpacing = 20.0;
   final double toolsPanelWidth = 100.0;
 
-  bool _isDrawerOpen = false;
+  bool _isLayerDrawerOpen = false;
+  bool _isToolDrawerOpen = false;
+  bool _isViewDrawerOpen = false;
 
   late DrawingService _drawingService;
 
-  List<DrawingLayer> _layers = [DrawingLayer(name: 'Layer 1')];
+  final List<DrawingLayer> _layers = [DrawingLayer(name: 'Layer 1')];
   int _activeLayerIndex = 0;
 
   ToolMode _toolMode = ToolMode.draw;
+  ViewMode _currentView = ViewMode.front;
 
   Offset? _startPoint;
   Offset? _eraserPosition;
@@ -61,10 +62,7 @@ class _DrawingBoardState extends State<DrawingBoard> {
     } else if (_toolMode == ToolMode.line) {
       _pendingLine = Line(start: snapped, end: snapped);
     } else if (_toolMode == ToolMode.rectangle) {
-      _pendingRectangle = RectangleShape(
-        topLeft: snapped,
-        bottomRight: snapped,
-      );
+      _pendingRectangle = RectangleShape(topLeft: snapped, bottomRight: snapped);
     } else if (_toolMode == ToolMode.circle) {
       _pendingCircle = CircleShape(center: snapped, radius: 0);
     } else if (_toolMode == ToolMode.ellipse) {
@@ -97,10 +95,7 @@ class _DrawingBoardState extends State<DrawingBoard> {
     } else if (_toolMode == ToolMode.circle && _pendingCircle != null) {
       setState(() {
         final radius = (snapped - _pendingCircle!.center).distance;
-        _pendingCircle = CircleShape(
-          center: _pendingCircle!.center,
-          radius: radius,
-        );
+        _pendingCircle = CircleShape(center: _pendingCircle!.center, radius: radius);
       });
     } else if (_toolMode == ToolMode.ellipse && _pendingEllipse != null) {
       setState(() {
@@ -152,12 +147,7 @@ class _DrawingBoardState extends State<DrawingBoard> {
     List<LineSegment> updatedLines = [];
 
     for (var line in _activeLayer.lines) {
-      if (_drawingService.lineIntersectsCircle(
-        line.start,
-        line.end,
-        erasePoint,
-        radius,
-      )) {
+      if (_drawingService.lineIntersectsCircle(line.start, line.end, erasePoint, radius)) {
         final splitSegments = _drawingService.splitLineAroundCircle(
           line.start,
           line.end,
@@ -175,93 +165,82 @@ class _DrawingBoardState extends State<DrawingBoard> {
     });
   }
 
- @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    backgroundColor: Colors.white,
-    body: Stack(
-      children: [
-        // Drawing area
-        GestureDetector(
-          onPanStart: (details) =>
-              _startDraw(_drawingService.adjustedOffset(details.localPosition)),
-          onPanUpdate: (details) =>
-              _updateDraw(_drawingService.adjustedOffset(details.localPosition)),
-          onPanEnd: (_) => _endDraw(),
-          child: Row(
-            children: [
-              Expanded(
-                child: CustomPaint(
-                  painter: DrawingPainter(
-                    layers: _layers,
-                    gridSpacing: gridSpacing,
-                    showEraser: _toolMode == ToolMode.erase,
-                    eraserPosition: _eraserPosition,
-                    eraserRadius: 15,
-                    pendingLine: _pendingLine,
-                    pendingRectangle: _pendingRectangle,
-                    pendingCircle: _pendingCircle,
-                    pendingEllipse: _pendingEllipse,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          // Drawing Canvas
+          GestureDetector(
+            onPanStart: (details) =>
+                _startDraw(_drawingService.adjustedOffset(details.localPosition)),
+            onPanUpdate: (details) =>
+                _updateDraw(_drawingService.adjustedOffset(details.localPosition)),
+            onPanEnd: (_) => _endDraw(),
+            child: Row(
+              children: [
+                Expanded(
+                  child: CustomPaint(
+                    painter: DrawingPainter(
+                      layers: _layers,
+                      gridSpacing: gridSpacing,
+                      showEraser: _toolMode == ToolMode.erase,
+                      eraserPosition: _eraserPosition,
+                      eraserRadius: 15,
+                      pendingLine: _pendingLine,
+                      pendingRectangle: _pendingRectangle,
+                      pendingCircle: _pendingCircle,
+                      pendingEllipse: _pendingEllipse,
+                    ),
+                    child: Container(),
                   ),
-                  child: Container(),
                 ),
-              ),
-            ],
-          ),
-        ),
-
-        // Layer Drawer on the left
-        LayerDrawer(
-          layers: _layers,
-          activeLayerIndex: _activeLayerIndex,
-          isDrawerOpen: _isDrawerOpen,
-          onLayerSelected: (index) => setState(() => _activeLayerIndex = index),
-          onToggleDrawer: () => setState(() => _isDrawerOpen = !_isDrawerOpen),
-          onAddLayer: () {
-            setState(() {
-              _layers.add(DrawingLayer(name: 'Layer ${_layers.length + 1}'));
-              _activeLayerIndex = _layers.length - 1;
-            });
-          },
-          onDeleteLayer: (index) {
-            if (_layers.length > 1) {
-              setState(() {
-                _layers.removeAt(index);
-                _activeLayerIndex = _activeLayerIndex.clamp(0, _layers.length - 1);
-              });
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("At least one layer must remain.")),
-              );
-            }
-          },
-          onToggleLock: (index) {
-            setState(() {
-              _layers[index].isLocked = !_layers[index].isLocked;
-            });
-          },
-        ),
-
-        // 🟢 Floating circular toolbar as a non-intrusive overlay
-        Positioned.fill(
-          child: IgnorePointer(
-            ignoring: false,
-            child: Align(
-              alignment: Alignment.bottomRight,
-              child: FloatingCircularToolbar(
-                currentTool: _toolMode,
-                onToolSelected: (mode) {
-                  setState(() {
-                    _toolMode = mode;
-                  });
-                },
-              ),
+              ],
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
 
+          // Drawer Controls (Tool, Layer, View)
+          DrawingBoardDrawers(
+            layers: _layers,
+            activeLayerIndex: _activeLayerIndex,
+            isToolDrawerOpen: _isToolDrawerOpen,
+            isLayerDrawerOpen: _isLayerDrawerOpen,
+            isViewDrawerOpen: _isViewDrawerOpen,
+            currentTool: _toolMode,
+            currentView: _currentView,
+            onLayerSelected: (index) => setState(() => _activeLayerIndex = index),
+            onToggleLayerDrawer: () => setState(() => _isLayerDrawerOpen = !_isLayerDrawerOpen),
+            onAddLayer: () {
+              setState(() {
+                _layers.add(DrawingLayer(name: 'Layer ${_layers.length + 1}'));
+                _activeLayerIndex = _layers.length - 1;
+              });
+            },
+            onDeleteLayer: (index) {
+              if (_layers.length > 1) {
+                setState(() {
+                  _layers.removeAt(index);
+                  _activeLayerIndex = _activeLayerIndex.clamp(0, _layers.length - 1);
+                });
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("At least one layer must remain.")),
+                );
+              }
+            },
+            onToggleLayerLock: (index) {
+              setState(() {
+                _layers[index].isLocked = !_layers[index].isLocked;
+              });
+            },
+            onToolSelected: (mode) => setState(() => _toolMode = mode),
+            onToggleToolDrawer: () => setState(() => _isToolDrawerOpen = !_isToolDrawerOpen),
+            onViewSelected: (view) => setState(() => _currentView = view),
+            onToggleViewDrawer: () => setState(() => _isViewDrawerOpen = !_isViewDrawerOpen),
+          ),
+        ],
+      ),
+    );
+  }
 }
