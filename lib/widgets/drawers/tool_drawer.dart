@@ -24,6 +24,7 @@ class ToolBarDrawer extends StatelessWidget {
     MapEntry(ToolMode.rectangle, 'Rectangle'),
     MapEntry(ToolMode.circle, 'Circle'),
     MapEntry(ToolMode.ellipse, 'Ellipse'),
+    MapEntry(ToolMode.pan, 'Pan'),
   ];
 
   final Map<ToolMode, IconData> toolIcons = const {
@@ -33,6 +34,7 @@ class ToolBarDrawer extends StatelessWidget {
     ToolMode.rectangle: Icons.crop_square,
     ToolMode.circle: Icons.circle,
     ToolMode.ellipse: Icons.roundabout_left,
+    ToolMode.pan: Icons.pan_tool,
   };
 
   @override

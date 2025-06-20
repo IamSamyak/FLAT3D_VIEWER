@@ -32,10 +32,12 @@ class _DrawingBoardState extends State<DrawingBoard> {
   int _activeLayerIndex = 0;
 
   ToolMode _toolMode = ToolMode.draw;
-  ViewMode _currentView = ViewMode.front;
+  ViewMode _currentView = ViewMode.top;
 
   Offset? _startPoint;
   Offset? _eraserPosition;
+  Offset _panOffset = Offset.zero;
+  Offset? _lastPanPosition;
 
   Line? _pendingLine;
   RectangleShape? _pendingRectangle;
@@ -54,7 +56,7 @@ class _DrawingBoardState extends State<DrawingBoard> {
   }
 
   void _startDraw(Offset point) {
-    final snapped = _drawingService.snapToGrid(point);
+    final snapped = _drawingService.snapToGrid(point - _panOffset);
     if (_activeLayer.isLocked) return;
 
     if (_toolMode == ToolMode.erase) {
@@ -67,13 +69,25 @@ class _DrawingBoardState extends State<DrawingBoard> {
       _pendingCircle = CircleShape(center: snapped, radius: 0);
     } else if (_toolMode == ToolMode.ellipse) {
       _pendingEllipse = EllipseShape(topLeft: snapped, bottomRight: snapped);
+    } else if (_toolMode == ToolMode.pan) {
+      _lastPanPosition = point;
     } else {
       _startPoint = snapped;
     }
   }
 
   void _updateDraw(Offset point) {
-    final snapped = _drawingService.snapToGrid(point);
+    if (_toolMode == ToolMode.pan) {
+      if (_lastPanPosition != null) {
+        setState(() {
+          _panOffset += point - _lastPanPosition!;
+          _lastPanPosition = point;
+        });
+      }
+      return;
+    }
+
+    final snapped = _drawingService.snapToGrid(point - _panOffset);
     if (_activeLayer.isLocked) return;
 
     if (_toolMode == ToolMode.erase) {
@@ -113,6 +127,11 @@ class _DrawingBoardState extends State<DrawingBoard> {
   }
 
   void _endDraw() {
+    if (_toolMode == ToolMode.pan) {
+      _lastPanPosition = null;
+      return;
+    }
+
     if (_activeLayer.isLocked) return;
 
     if (_toolMode == ToolMode.line && _pendingLine != null) {
@@ -171,12 +190,9 @@ class _DrawingBoardState extends State<DrawingBoard> {
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Drawing Canvas
           GestureDetector(
-            onPanStart: (details) =>
-                _startDraw(_drawingService.adjustedOffset(details.localPosition)),
-            onPanUpdate: (details) =>
-                _updateDraw(_drawingService.adjustedOffset(details.localPosition)),
+            onPanStart: (details) => _startDraw(details.localPosition),
+            onPanUpdate: (details) => _updateDraw(details.localPosition),
             onPanEnd: (_) => _endDraw(),
             child: Row(
               children: [
@@ -192,6 +208,8 @@ class _DrawingBoardState extends State<DrawingBoard> {
                       pendingRectangle: _pendingRectangle,
                       pendingCircle: _pendingCircle,
                       pendingEllipse: _pendingEllipse,
+                      currentView: _currentView,
+                      panOffset: _panOffset,
                     ),
                     child: Container(),
                   ),
@@ -199,8 +217,6 @@ class _DrawingBoardState extends State<DrawingBoard> {
               ],
             ),
           ),
-
-          // Drawer Controls (Tool, Layer, View)
           DrawingBoardDrawers(
             layers: _layers,
             activeLayerIndex: _activeLayerIndex,

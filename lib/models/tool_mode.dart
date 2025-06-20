@@ -1,1 +1,1 @@
-enum ToolMode { draw, erase, line, rectangle, circle, ellipse }
+enum ToolMode { draw, erase, line, rectangle, circle, ellipse, pan }
