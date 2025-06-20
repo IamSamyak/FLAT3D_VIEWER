@@ -8,7 +8,7 @@ import 'package:flat3d_viewer/models/circle_shape.dart';
 import 'package:flat3d_viewer/models/ellipse_shape.dart';
 import 'package:flat3d_viewer/models/drawing_layer.dart';
 import 'package:flat3d_viewer/services/drawing_service.dart';
-import 'package:flat3d_viewer/widgets/drawing_painter.dart';
+import 'package:flat3d_viewer/widgets/painters/drawing_painter.dart';
 import 'package:flat3d_viewer/widgets/drawing_board_drawers.dart';
 
 class DrawingBoard extends StatefulWidget {
