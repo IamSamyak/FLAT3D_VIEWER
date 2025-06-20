@@ -1,3 +1,4 @@
+import 'package:flat3d_viewer/models/arc.dart';
 import 'package:flat3d_viewer/models/circle_shape.dart';
 import 'package:flat3d_viewer/models/drawing_layer.dart';
 import 'package:flat3d_viewer/models/ellipse_shape.dart';
@@ -70,6 +71,18 @@ void drawShapesAndLayers(Canvas canvas, List<DrawingLayer> layers, Offset axisOr
       drawCoordinateText(canvas, r.topLeft, axisOrigin, gridSpacing);
       drawCoordinateText(canvas, r.bottomRight, axisOrigin, gridSpacing);
     }
+
+    final arcPaint = Paint()
+      ..color = Colors.teal
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    for (final arc in layer.arcs) {
+      final center = arc.center + panOffset;
+      final rect = Rect.fromCircle(center: center, radius: arc.radius);
+      canvas.drawArc(rect, arc.startAngle, arc.sweepAngle, false, arcPaint);
+      drawCoordinateText(canvas, center, axisOrigin, gridSpacing);
+    }
   }
 }
 
@@ -82,6 +95,7 @@ void drawPendingShapes(
   RectangleShape? rectangle,
   CircleShape? circle,
   EllipseShape? ellipse,
+  Arc? arc,
 ) {
   final pendingPaint = Paint()..style = PaintingStyle.stroke..strokeWidth = 2;
 
@@ -113,5 +127,12 @@ void drawPendingShapes(
     canvas.drawOval(r, pendingPaint);
     drawCoordinateText(canvas, r.topLeft, axisOrigin, gridSpacing);
     drawCoordinateText(canvas, r.bottomRight, axisOrigin, gridSpacing);
+  }
+
+  if (arc != null) {
+    pendingPaint.color = Colors.teal;
+    final rect = Rect.fromCircle(center: arc.center + panOffset, radius: arc.radius);
+    canvas.drawArc(rect, arc.startAngle, arc.sweepAngle, false, pendingPaint);
+    drawCoordinateText(canvas, arc.center + panOffset, axisOrigin, gridSpacing);
   }
 }

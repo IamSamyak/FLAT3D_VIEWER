@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../models/tool_mode.dart';
-import '../models/view_mode.dart';
-import '../models/drawing_layer.dart';
-import 'drawers/tool_drawer.dart';
-import 'drawers/layer_drawer.dart';
-import 'drawers/view_selector_drawer.dart';
+import '../../models/tool_mode.dart';
+import '../../models/view_mode.dart';
+import '../../models/drawing_layer.dart';
+import 'tool_drawer.dart';
+import 'layer_drawer.dart';
+import 'view_selector_drawer.dart';
 
 class DrawingBoardDrawers extends StatelessWidget {
   final List<DrawingLayer> layers;

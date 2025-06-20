@@ -1,3 +1,4 @@
+import 'package:flat3d_viewer/models/arc.dart';
 import 'package:flat3d_viewer/models/circle_shape.dart';
 import 'package:flat3d_viewer/models/drawing_layer.dart';
 import 'package:flat3d_viewer/models/ellipse_shape.dart';
@@ -22,6 +23,7 @@ class DrawingPainter extends CustomPainter {
   final RectangleShape? pendingRectangle;
   final CircleShape? pendingCircle;
   final EllipseShape? pendingEllipse;
+  final Arc? pendingArc;
 
   final ViewMode currentView;
 
@@ -37,6 +39,7 @@ class DrawingPainter extends CustomPainter {
     this.pendingRectangle,
     this.pendingCircle,
     this.pendingEllipse,
+    this.pendingArc,
   });
 
   @override
@@ -61,8 +64,16 @@ class DrawingPainter extends CustomPainter {
     drawAxis(canvas, size, axisOrigin);
     drawAxisLabels(canvas, size, axisOrigin, gridSpacing);
     drawShapesAndLayers(canvas, layers, axisOrigin, panOffset, gridSpacing);
-    drawPendingShapes(canvas, axisOrigin, panOffset, gridSpacing,
-      pendingLine, pendingRectangle, pendingCircle, pendingEllipse
+    drawPendingShapes(
+      canvas,
+      axisOrigin,
+      panOffset,
+      gridSpacing,
+      pendingLine,
+      pendingRectangle,
+      pendingCircle,
+      pendingEllipse,
+      pendingArc,
     );
 
     if (showEraser && eraserPosition != null) {

@@ -6,10 +6,11 @@ import 'package:flat3d_viewer/models/line.dart';
 import 'package:flat3d_viewer/models/rectangle_shape.dart';
 import 'package:flat3d_viewer/models/circle_shape.dart';
 import 'package:flat3d_viewer/models/ellipse_shape.dart';
+import 'package:flat3d_viewer/models/arc.dart';
 import 'package:flat3d_viewer/models/drawing_layer.dart';
 import 'package:flat3d_viewer/services/drawing_service.dart';
 import 'package:flat3d_viewer/widgets/painters/drawing_painter.dart';
-import 'package:flat3d_viewer/widgets/drawing_board_drawers.dart';
+import 'package:flat3d_viewer/widgets/drawers/drawing_board_drawers.dart';
 
 class DrawingBoard extends StatefulWidget {
   const DrawingBoard({super.key});
@@ -43,6 +44,7 @@ class _DrawingBoardState extends State<DrawingBoard> {
   RectangleShape? _pendingRectangle;
   CircleShape? _pendingCircle;
   EllipseShape? _pendingEllipse;
+  Arc? _pendingArc;
 
   DrawingLayer get _activeLayer => _layers[_activeLayerIndex];
 
@@ -64,7 +66,10 @@ class _DrawingBoardState extends State<DrawingBoard> {
     } else if (_toolMode == ToolMode.line) {
       _pendingLine = Line(start: snapped, end: snapped);
     } else if (_toolMode == ToolMode.rectangle) {
-      _pendingRectangle = RectangleShape(topLeft: snapped, bottomRight: snapped);
+      _pendingRectangle = RectangleShape(
+        topLeft: snapped,
+        bottomRight: snapped,
+      );
     } else if (_toolMode == ToolMode.circle) {
       _pendingCircle = CircleShape(center: snapped, radius: 0);
     } else if (_toolMode == ToolMode.ellipse) {
@@ -82,7 +87,6 @@ class _DrawingBoardState extends State<DrawingBoard> {
         final delta = point - _lastPanPosition!;
         final tentativeOffset = _panOffset + delta;
 
-        // Snap pan offset to nearest multiple of gridSpacing
         setState(() {
           _panOffset = Offset(
             (tentativeOffset.dx / gridSpacing).round() * gridSpacing,
@@ -115,8 +119,13 @@ class _DrawingBoardState extends State<DrawingBoard> {
       });
     } else if (_toolMode == ToolMode.circle && _pendingCircle != null) {
       setState(() {
-        final radius = (snapped - _pendingCircle!.center).distance;
-        _pendingCircle = CircleShape(center: _pendingCircle!.center, radius: radius);
+        final rawDistance = (snapped - _pendingCircle!.center).distance;
+        final unitCount = (rawDistance / gridSpacing).round();
+        final quantizedRadius = unitCount * gridSpacing;
+        _pendingCircle = CircleShape(
+          center: _pendingCircle!.center,
+          radius: quantizedRadius,
+        );
       });
     } else if (_toolMode == ToolMode.ellipse && _pendingEllipse != null) {
       setState(() {
@@ -169,27 +178,81 @@ class _DrawingBoardState extends State<DrawingBoard> {
   }
 
   void _handleErase(Offset erasePoint) {
-    const double radius = 15;
-    List<LineSegment> updatedLines = [];
+  const double radius = 15;
 
-    for (var line in _activeLayer.lines) {
-      if (_drawingService.lineIntersectsCircle(line.start, line.end, erasePoint, radius)) {
-        final splitSegments = _drawingService.splitLineAroundCircle(
-          line.start,
-          line.end,
-          erasePoint,
-          radius,
+  List<LineSegment> updatedLines = [];
+  List<RectangleShape> remainingRectangles = [];
+  List<CircleShape> remainingCircles = [];
+  List<Arc> updatedArcs = [];
+
+  // Handle lines
+  for (var line in _activeLayer.lines) {
+    if (_drawingService.lineIntersectsCircle(line.start, line.end, erasePoint, radius)) {
+      updatedLines.addAll(
+        _drawingService.splitLineAroundCircle(line.start, line.end, erasePoint, radius),
+      );
+    } else {
+      updatedLines.add(line);
+    }
+  }
+
+  // Handle rectangles
+  for (var rect in _activeLayer.rectangles) {
+    final topLeft = rect.topLeft;
+    final bottomRight = rect.bottomRight;
+    final topRight = Offset(bottomRight.dx, topLeft.dy);
+    final bottomLeft = Offset(topLeft.dx, bottomRight.dy);
+
+    final edges = [
+      LineSegment(start: topLeft, end: topRight),
+      LineSegment(start: topRight, end: bottomRight),
+      LineSegment(start: bottomRight, end: bottomLeft),
+      LineSegment(start: bottomLeft, end: topLeft),
+    ];
+
+    bool erased = false;
+    for (var edge in edges) {
+      if (_drawingService.lineIntersectsCircle(edge.start, edge.end, erasePoint, radius)) {
+        updatedLines.addAll(
+          _drawingService.splitLineAroundCircle(edge.start, edge.end, erasePoint, radius),
         );
-        updatedLines.addAll(splitSegments);
+        erased = true;
       } else {
-        updatedLines.add(line);
+        updatedLines.add(edge);
       }
     }
 
-    setState(() {
-      _activeLayer.lines = updatedLines;
-    });
+    if (!erased) remainingRectangles.add(rect);
   }
+
+  // Handle circles
+  for (var circle in _activeLayer.circles) {
+    if (_drawingService.circleIntersectsEraser(circle.center, circle.radius, erasePoint, radius)) {
+      final arcs = _drawingService.splitCircleIntoArcs(circle.center, circle.radius, erasePoint, radius);
+      updatedArcs.addAll(arcs); // add visible arcs
+    } else {
+      remainingCircles.add(circle);
+    }
+  }
+
+  // ✅ NEW: Handle arcs
+  for (var arc in _activeLayer.arcs) {
+    if (_drawingService.arcIntersectsEraser(arc, erasePoint, radius)) {
+      final splitArcs = _drawingService.splitArcIntoArcs(arc, erasePoint, radius);
+      updatedArcs.addAll(splitArcs);
+    } else {
+      updatedArcs.add(arc);
+    }
+  }
+
+  // Update state
+  setState(() {
+    _activeLayer.lines = updatedLines;
+    _activeLayer.rectangles = remainingRectangles;
+    _activeLayer.circles = remainingCircles;
+    _activeLayer.arcs = updatedArcs;
+  });
+}
 
   @override
   Widget build(BuildContext context) {
@@ -215,6 +278,7 @@ class _DrawingBoardState extends State<DrawingBoard> {
                       pendingRectangle: _pendingRectangle,
                       pendingCircle: _pendingCircle,
                       pendingEllipse: _pendingEllipse,
+                      pendingArc: _pendingArc,
                       currentView: _currentView,
                       panOffset: _panOffset,
                     ),
@@ -253,9 +317,7 @@ class _DrawingBoardState extends State<DrawingBoard> {
               }
             },
             onToggleLayerLock: (index) {
-              setState(() {
-                _layers[index].isLocked = !_layers[index].isLocked;
-              });
+              setState(() => _layers[index].isLocked = !_layers[index].isLocked);
             },
             onToolSelected: (mode) => setState(() => _toolMode = mode),
             onToggleToolDrawer: () => setState(() => _isToolDrawerOpen = !_isToolDrawerOpen),

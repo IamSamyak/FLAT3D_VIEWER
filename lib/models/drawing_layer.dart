@@ -2,6 +2,7 @@ import 'line_segment.dart';
 import 'rectangle_shape.dart';
 import 'circle_shape.dart';
 import 'ellipse_shape.dart';
+import 'arc.dart';
 
 class DrawingLayer {
   final String name;
@@ -12,6 +13,7 @@ class DrawingLayer {
   List<RectangleShape> rectangles;
   List<CircleShape> circles;
   List<EllipseShape> ellipses;
+  List<Arc> arcs;
 
   DrawingLayer({
     required this.name,
@@ -21,8 +23,17 @@ class DrawingLayer {
     List<RectangleShape>? rectangles,
     List<CircleShape>? circles,
     List<EllipseShape>? ellipses,
+    List<Arc>? arcs,
   })  : lines = lines ?? [],
         rectangles = rectangles ?? [],
         circles = circles ?? [],
-        ellipses = ellipses ?? [];
+        ellipses = ellipses ?? [],
+        arcs = arcs ?? [];
+
+  @override
+  String toString() {
+    return 'DrawingLayer(name: $name, visible: $isVisible, locked: $isLocked, '
+        'lines: $lines, rectangles: $rectangles, circles: $circles, '
+        'ellipses: $ellipses, arcs: $arcs)';
+  }
 }

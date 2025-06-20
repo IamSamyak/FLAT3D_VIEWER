@@ -2,6 +2,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/line_segment.dart';
+import '../models/arc.dart';
 
 class DrawingService {
   final double gridSpacing;
@@ -17,7 +18,6 @@ class DrawingService {
   }
 
   Offset adjustedOffset(Offset rawOffset) {
-    // Subtract only the width of the Layers panel (left side)
     return Offset(rawOffset.dx - 200, rawOffset.dy);
   }
 
@@ -78,6 +78,160 @@ class DrawingService {
       result.add(LineSegment(start: snappedExit, end: p2));
     }
 
+    return result;
+  }
+
+  bool circleIntersectsCircle(
+    Offset center1,
+    double radius1,
+    Offset center2,
+    double radius2,
+  ) {
+    return (center1 - center2).distance <= (radius1 + radius2);
+  }
+
+  List<Arc> splitCircleIntoArcs(
+    Offset center,
+    double radius,
+    Offset eraseCenter,
+    double eraseRadius,
+  ) {
+    final dist = (center - eraseCenter).distance;
+
+    if (dist > radius + eraseRadius) {
+      // No intersection — return full circle as one arc
+      return [
+        Arc(center: center, radius: radius, startAngle: 0, sweepAngle: 2 * pi),
+      ];
+    }
+
+    // Compute angle from circle center to eraser center
+    final angleToEraseCenter = atan2(
+      eraseCenter.dy - center.dy,
+      eraseCenter.dx - center.dx,
+    );
+
+    // Compute angle offset using law of cosines
+    final cosine =
+        (pow(radius, 2) + pow(dist, 2) - pow(eraseRadius, 2)) /
+        (2 * radius * dist);
+
+    if (cosine.abs() > 1) {
+      // Eraser fully covers circle or no real intersection
+      return [];
+    }
+
+    final angleOffset = acos(cosine);
+
+    final angle1 = (angleToEraseCenter - angleOffset) % (2 * pi);
+    final angle2 = (angleToEraseCenter + angleOffset) % (2 * pi);
+
+    // Compute sweep of the erased arc
+    final erasedSweep = (angle2 - angle1 + 2 * pi) % (2 * pi);
+    final remainingSweep = (2 * pi - erasedSweep);
+
+    if (remainingSweep == 0) {
+      // Eraser fully covers circle — nothing remains
+      return [];
+    }
+
+    // Return only the un-erased arc
+    return [
+      Arc(
+        center: center,
+        radius: radius,
+        startAngle: angle2,
+        sweepAngle: remainingSweep,
+      ),
+    ];
+  }
+
+  bool circleIntersectsEraser(
+    Offset circleCenter,
+    double circleRadius,
+    Offset eraserCenter,
+    double eraserRadius,
+  ) {
+    final distance = (circleCenter - eraserCenter).distance;
+    return distance <= circleRadius + eraserRadius;
+  }
+
+  bool arcIntersectsEraser(Arc arc, Offset eraseCenter, double eraseRadius) {
+    final arcCenter = arc.center;
+    final radius = arc.radius;
+    final startAngle = arc.startAngle;
+    final endAngle = startAngle + arc.sweepAngle;
+
+    const resolution = pi / 180; // Fine resolution for accuracy
+    final int steps = (arc.sweepAngle / resolution).ceil();
+
+    for (int i = 0; i <= steps; i++) {
+      final angle = startAngle + i * resolution;
+      final point =
+          arcCenter + Offset(radius * cos(angle), radius * sin(angle));
+      if ((point - eraseCenter).distance <= eraseRadius) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  List<Arc> splitArcIntoArcs(Arc arc, Offset eraseCenter, double eraseRadius) {
+    final arcCenter = arc.center;
+    final arcRadius = arc.radius;
+    final arcStart = arc.startAngle;
+    final arcSweep = arc.sweepAngle;
+
+    const splitResolution = pi / 180; // finer for smoother result
+    final int count = (arcSweep / splitResolution).ceil();
+
+    List<Arc> result = [];
+
+    double? currentStart;
+    double currentSweep = 0;
+
+    for (int i = 0; i < count; i++) {
+      final start = arcStart + i * splitResolution;
+      final mid = start + splitResolution / 2;
+
+      final point =
+          arcCenter + Offset(arcRadius * cos(mid), arcRadius * sin(mid));
+
+      final isOutside = (point - eraseCenter).distance > eraseRadius;
+
+      if (isOutside) {
+        // Start new visible arc segment if not already started
+        currentStart ??= start;
+        currentSweep += splitResolution;
+      } else {
+        // Finalize and add current arc segment
+        if (currentStart != null && currentSweep > 0) {
+          result.add(
+            Arc(
+              center: arcCenter,
+              radius: arcRadius,
+              startAngle: currentStart,
+              sweepAngle: currentSweep,
+            ),
+          );
+          currentStart = null;
+          currentSweep = 0;
+        }
+      }
+    }
+
+    // Finalize if the arc ends while still in visible region
+    if (currentStart != null && currentSweep > 0) {
+      result.add(
+        Arc(
+          center: arcCenter,
+          radius: arcRadius,
+          startAngle: currentStart,
+          sweepAngle: currentSweep,
+        ),
+      );
+    }
     return result;
   }
 }
