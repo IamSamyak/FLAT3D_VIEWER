@@ -2,6 +2,7 @@ import 'package:flat3d_viewer/models/arc.dart';
 import 'package:flat3d_viewer/models/circle_shape.dart';
 import 'package:flat3d_viewer/models/drawing_layer.dart';
 import 'package:flat3d_viewer/models/ellipse_shape.dart';
+import 'package:flat3d_viewer/models/ellipse_arc.dart'; // ✅ import EllipseArc
 import 'package:flat3d_viewer/models/line.dart';
 import 'package:flat3d_viewer/models/rectangle_shape.dart';
 import 'package:flat3d_viewer/models/view_mode.dart';
@@ -24,6 +25,7 @@ class DrawingPainter extends CustomPainter {
   final CircleShape? pendingCircle;
   final EllipseShape? pendingEllipse;
   final Arc? pendingArc;
+  final EllipseArc? pendingEllipseArc; // ✅ NEW
 
   final ViewMode currentView;
 
@@ -40,12 +42,14 @@ class DrawingPainter extends CustomPainter {
     this.pendingCircle,
     this.pendingEllipse,
     this.pendingArc,
+    this.pendingEllipseArc, // ✅ NEW
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     const padding = 40.0;
     late Offset origin;
+
     switch (currentView) {
       case ViewMode.front:
         origin = Offset(size.width - padding, size.height - padding);
@@ -74,6 +78,7 @@ class DrawingPainter extends CustomPainter {
       pendingCircle,
       pendingEllipse,
       pendingArc,
+      pendingEllipseArc, // ✅ pass it to helper
     );
 
     if (showEraser && eraserPosition != null) {

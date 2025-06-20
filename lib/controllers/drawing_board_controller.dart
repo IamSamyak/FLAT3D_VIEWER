@@ -6,23 +6,19 @@ import 'package:flat3d_viewer/models/line.dart';
 import 'package:flat3d_viewer/models/rectangle_shape.dart';
 import 'package:flat3d_viewer/models/circle_shape.dart';
 import 'package:flat3d_viewer/models/ellipse_shape.dart';
+import 'package:flat3d_viewer/models/ellipse_arc.dart';
+import 'package:flat3d_viewer/models/arc.dart';
 import 'package:flat3d_viewer/models/drawing_layer.dart';
 import 'package:flat3d_viewer/services/drawing_service.dart';
 
-class DrawingBoardController extends ChangeNotifier {
+class DrawingBoardController {
   final double gridSpacing;
   final double toolsPanelWidth;
+  final List<DrawingLayer> layers;
 
-  final DrawingService drawingService;
-  final List<DrawingLayer> layers = [DrawingLayer(name: 'Layer 1')];
   int activeLayerIndex = 0;
-
   ToolMode toolMode = ToolMode.draw;
   ViewMode currentView = ViewMode.top;
-
-  bool isLayerDrawerOpen = false;
-  bool isToolDrawerOpen = false;
-  bool isViewDrawerOpen = false;
 
   Offset? startPoint;
   Offset? eraserPosition;
@@ -33,13 +29,23 @@ class DrawingBoardController extends ChangeNotifier {
   RectangleShape? pendingRectangle;
   CircleShape? pendingCircle;
   EllipseShape? pendingEllipse;
+  EllipseArc? pendingEllipseArc;
+  Arc? pendingArc;
 
-  DrawingLayer get activeLayer => layers[activeLayerIndex];
+  late final DrawingService drawingService;
 
   DrawingBoardController({
     required this.gridSpacing,
     required this.toolsPanelWidth,
-  }) : drawingService = DrawingService(gridSpacing: gridSpacing, toolsPanelWidth: toolsPanelWidth);
+    required this.layers,
+  }) {
+    drawingService = DrawingService(
+      gridSpacing: gridSpacing,
+      toolsPanelWidth: toolsPanelWidth,
+    );
+  }
+
+  DrawingLayer get activeLayer => layers[activeLayerIndex];
 
   void startDraw(Offset point) {
     final snapped = drawingService.snapToGrid(point - panOffset);
@@ -47,7 +53,7 @@ class DrawingBoardController extends ChangeNotifier {
 
     switch (toolMode) {
       case ToolMode.erase:
-        _handleErase(snapped);
+        handleErase(snapped);
         break;
       case ToolMode.line:
         pendingLine = Line(start: snapped, end: snapped);
@@ -69,18 +75,16 @@ class DrawingBoardController extends ChangeNotifier {
     }
   }
 
-  void updateDraw(Offset point) {
-    if (toolMode == ToolMode.pan) {
-      if (lastPanPosition != null) {
-        final delta = point - lastPanPosition!;
-        final tentativeOffset = panOffset + delta;
-        panOffset = Offset(
-          (tentativeOffset.dx / gridSpacing).round() * gridSpacing,
-          (tentativeOffset.dy / gridSpacing).round() * gridSpacing,
-        );
-        lastPanPosition = point;
-        notifyListeners();
-      }
+  void updateDraw(Offset point, VoidCallback onUpdate) {
+    if (toolMode == ToolMode.pan && lastPanPosition != null) {
+      final delta = point - lastPanPosition!;
+      final tentativeOffset = panOffset + delta;
+      panOffset = Offset(
+        (tentativeOffset.dx / gridSpacing).round() * gridSpacing,
+        (tentativeOffset.dy / gridSpacing).round() * gridSpacing,
+      );
+      lastPanPosition = point;
+      onUpdate();
       return;
     }
 
@@ -90,39 +94,55 @@ class DrawingBoardController extends ChangeNotifier {
     switch (toolMode) {
       case ToolMode.erase:
         eraserPosition = point;
-        _handleErase(snapped);
+        handleErase(snapped);
+        onUpdate();
         break;
       case ToolMode.line:
         if (pendingLine != null) {
           pendingLine = Line(start: pendingLine!.start, end: snapped);
+          onUpdate();
         }
         break;
       case ToolMode.rectangle:
         if (pendingRectangle != null) {
-          pendingRectangle = RectangleShape(topLeft: pendingRectangle!.topLeft, bottomRight: snapped);
+          pendingRectangle = RectangleShape(
+            topLeft: pendingRectangle!.topLeft,
+            bottomRight: snapped,
+          );
+          onUpdate();
         }
         break;
       case ToolMode.circle:
         if (pendingCircle != null) {
-          final radius = (snapped - pendingCircle!.center).distance;
-          pendingCircle = CircleShape(center: pendingCircle!.center, radius: radius);
+          final rawDistance = (snapped - pendingCircle!.center).distance;
+          final unitCount = (rawDistance / gridSpacing).round();
+          final quantizedRadius = unitCount * gridSpacing;
+          pendingCircle = CircleShape(
+            center: pendingCircle!.center,
+            radius: quantizedRadius,
+          );
+          onUpdate();
         }
         break;
       case ToolMode.ellipse:
         if (pendingEllipse != null) {
-          pendingEllipse = EllipseShape(topLeft: pendingEllipse!.topLeft, bottomRight: snapped);
+          pendingEllipse = EllipseShape(
+            topLeft: pendingEllipse!.topLeft,
+            bottomRight: snapped,
+          );
+          onUpdate();
         }
         break;
       default:
         if (startPoint != null) {
           activeLayer.lines.add(LineSegment(start: startPoint!, end: snapped));
           startPoint = snapped;
+          onUpdate();
         }
     }
-    notifyListeners();
   }
 
-  void endDraw() {
+  void endDraw(VoidCallback onUpdate) {
     if (toolMode == ToolMode.pan) {
       lastPanPosition = null;
       return;
@@ -135,98 +155,126 @@ class DrawingBoardController extends ChangeNotifier {
         if (pendingLine != null) {
           activeLayer.lines.add(LineSegment(start: pendingLine!.start, end: pendingLine!.end));
           pendingLine = null;
+          onUpdate();
         }
         break;
       case ToolMode.rectangle:
         if (pendingRectangle != null) {
           activeLayer.rectangles.add(pendingRectangle!);
           pendingRectangle = null;
+          onUpdate();
         }
         break;
       case ToolMode.circle:
         if (pendingCircle != null) {
           activeLayer.circles.add(pendingCircle!);
           pendingCircle = null;
+          onUpdate();
         }
         break;
       case ToolMode.ellipse:
         if (pendingEllipse != null) {
           activeLayer.ellipses.add(pendingEllipse!);
           pendingEllipse = null;
+          onUpdate();
         }
         break;
       default:
-        break;
+        startPoint = null;
     }
-    startPoint = null;
-    notifyListeners();
   }
 
-  void _handleErase(Offset point) {
+  void handleErase(Offset erasePoint) {
     const double radius = 15;
-    List<LineSegment> updatedLines = [];
+
+    final updatedLines = <LineSegment>[];
+    final remainingRectangles = <RectangleShape>[];
+    final remainingCircles = <CircleShape>[];
+    final updatedArcs = <Arc>[];
+    final remainingEllipses = <EllipseShape>[];
+    final updatedEllipseArcs = <EllipseArc>[];
+
+    for (var ellipse in activeLayer.ellipses) {
+      if (drawingService.ellipseIntersectsEraser(ellipse.topLeft, ellipse.bottomRight, erasePoint, radius)) {
+        final center = Offset(
+          (ellipse.topLeft.dx + ellipse.bottomRight.dx) / 2,
+          (ellipse.topLeft.dy + ellipse.bottomRight.dy) / 2,
+        );
+        final radiusX = (ellipse.bottomRight.dx - ellipse.topLeft.dx).abs() / 2;
+        final radiusY = (ellipse.bottomRight.dy - ellipse.topLeft.dy).abs() / 2;
+        final arcs = drawingService.splitEllipseIntoArcs(center, radiusX, radiusY, erasePoint, radius);
+        updatedEllipseArcs.addAll(arcs);
+      } else {
+        remainingEllipses.add(ellipse);
+      }
+    }
+
+    for (var arc in activeLayer.ellipseArcs) {
+      if (drawingService.ellipseArcIntersectsEraser(arc, erasePoint, radius)) {
+        final splitArcs = drawingService.splitEllipseArcIntoArcs(arc, erasePoint, radius);
+        updatedEllipseArcs.addAll(splitArcs);
+      } else {
+        updatedEllipseArcs.add(arc);
+      }
+    }
 
     for (var line in activeLayer.lines) {
-      if (drawingService.lineIntersectsCircle(line.start, line.end, point, radius)) {
-        final split = drawingService.splitLineAroundCircle(line.start, line.end, point, radius);
-        updatedLines.addAll(split);
+      if (drawingService.lineIntersectsCircle(line.start, line.end, erasePoint, radius)) {
+        updatedLines.addAll(drawingService.splitLineAroundCircle(line.start, line.end, erasePoint, radius));
       } else {
         updatedLines.add(line);
       }
     }
 
-    activeLayer.lines = updatedLines;
-    notifyListeners();
-  }
+    for (var rect in activeLayer.rectangles) {
+      final topLeft = rect.topLeft;
+      final bottomRight = rect.bottomRight;
+      final topRight = Offset(bottomRight.dx, topLeft.dy);
+      final bottomLeft = Offset(topLeft.dx, bottomRight.dy);
 
-  // Layer controls
-  void addLayer() {
-    layers.add(DrawingLayer(name: 'Layer ${layers.length + 1}'));
-    activeLayerIndex = layers.length - 1;
-    notifyListeners();
-  }
+      final edges = [
+        LineSegment(start: topLeft, end: topRight),
+        LineSegment(start: topRight, end: bottomRight),
+        LineSegment(start: bottomRight, end: bottomLeft),
+        LineSegment(start: bottomLeft, end: topLeft),
+      ];
 
-  void deleteLayer(int index) {
-    if (layers.length > 1) {
-      layers.removeAt(index);
-      activeLayerIndex = activeLayerIndex.clamp(0, layers.length - 1);
-      notifyListeners();
+      bool erased = false;
+      for (var edge in edges) {
+        if (drawingService.lineIntersectsCircle(edge.start, edge.end, erasePoint, radius)) {
+          updatedLines.addAll(drawingService.splitLineAroundCircle(edge.start, edge.end, erasePoint, radius));
+          erased = true;
+        } else {
+          updatedLines.add(edge);
+        }
+      }
+
+      if (!erased) remainingRectangles.add(rect);
     }
-  }
 
-  void toggleLayerLock(int index) {
-    layers[index].isLocked = !layers[index].isLocked;
-    notifyListeners();
-  }
+    for (var circle in activeLayer.circles) {
+      if (drawingService.circleIntersectsEraser(circle.center, circle.radius, erasePoint, radius)) {
+        final arcs = drawingService.splitCircleIntoArcs(circle.center, circle.radius, erasePoint, radius);
+        updatedArcs.addAll(arcs);
+      } else {
+        remainingCircles.add(circle);
+      }
+    }
 
-  // Drawer toggles
-  void toggleToolDrawer() {
-    isToolDrawerOpen = !isToolDrawerOpen;
-    notifyListeners();
-  }
+    for (var arc in activeLayer.arcs) {
+      if (drawingService.arcIntersectsEraser(arc, erasePoint, radius)) {
+        final splitArcs = drawingService.splitArcIntoArcs(arc, erasePoint, radius);
+        updatedArcs.addAll(splitArcs);
+      } else {
+        updatedArcs.add(arc);
+      }
+    }
 
-  void toggleLayerDrawer() {
-    isLayerDrawerOpen = !isLayerDrawerOpen;
-    notifyListeners();
-  }
-
-  void toggleViewDrawer() {
-    isViewDrawerOpen = !isViewDrawerOpen;
-    notifyListeners();
-  }
-
-  void setToolMode(ToolMode mode) {
-    toolMode = mode;
-    notifyListeners();
-  }
-
-  void setViewMode(ViewMode view) {
-    currentView = view;
-    notifyListeners();
-  }
-
-  void selectLayer(int index) {
-    activeLayerIndex = index;
-    notifyListeners();
+    activeLayer.lines = updatedLines;
+    activeLayer.rectangles = remainingRectangles;
+    activeLayer.circles = remainingCircles;
+    activeLayer.ellipses = remainingEllipses;
+    activeLayer.arcs = updatedArcs;
+    activeLayer.ellipseArcs = updatedEllipseArcs;
   }
 }

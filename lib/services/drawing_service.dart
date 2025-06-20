@@ -1,5 +1,6 @@
 // services/drawing_service.dart
 import 'dart:math';
+import 'package:flat3d_viewer/models/ellipse_arc.dart';
 import 'package:flutter/material.dart';
 import '../models/line_segment.dart';
 import '../models/arc.dart';
@@ -175,6 +176,173 @@ class DrawingService {
     }
 
     return false;
+  }
+
+  List<EllipseArc> splitEllipseIntoArcs(
+    Offset center,
+    double radiusX,
+    double radiusY,
+    Offset eraseCenter,
+    double eraseRadius,
+  ) {
+    const double resolution = pi / 180; // 1-degree steps
+    final List<EllipseArc> visibleArcs = [];
+
+    double? currentStart;
+    double currentSweep = 0;
+
+    for (int i = 0; i <= 360; i++) {
+      final angle = i * resolution;
+      final point = Offset(
+        center.dx + radiusX * cos(angle),
+        center.dy + radiusY * sin(angle),
+      );
+
+      final isOutside = (point - eraseCenter).distance > eraseRadius;
+
+      if (isOutside) {
+        currentStart ??= angle;
+        currentSweep += resolution;
+      } else {
+        if (currentStart != null && currentSweep > 0) {
+          visibleArcs.add(
+            EllipseArc(
+              center: center,
+              radiusX: radiusX,
+              radiusY: radiusY,
+              startAngle: currentStart,
+              sweepAngle: currentSweep,
+            ),
+          );
+          currentStart = null;
+          currentSweep = 0;
+        }
+      }
+    }
+
+    // Catch any final arc at the end
+    if (currentStart != null && currentSweep > 0) {
+      visibleArcs.add(
+        EllipseArc(
+          center: center,
+          radiusX: radiusX,
+          radiusY: radiusY,
+          startAngle: currentStart,
+          sweepAngle: currentSweep,
+        ),
+      );
+    }
+
+    return visibleArcs;
+  }
+
+  bool ellipseIntersectsEraser(
+    Offset topLeft,
+    Offset bottomRight,
+    Offset eraseCenter,
+    double eraseRadius,
+  ) {
+    const resolution = pi / 180;
+    final center = Offset(
+      (topLeft.dx + bottomRight.dx) / 2,
+      (topLeft.dy + bottomRight.dy) / 2,
+    );
+    final radiusX = (bottomRight.dx - topLeft.dx).abs() / 2;
+    final radiusY = (bottomRight.dy - topLeft.dy).abs() / 2;
+
+    for (int i = 0; i <= 360; i++) {
+      final angle = i * resolution;
+      final point = Offset(
+        center.dx + radiusX * cos(angle),
+        center.dy + radiusY * sin(angle),
+      );
+
+      if ((point - eraseCenter).distance <= eraseRadius) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  bool ellipseArcIntersectsEraser(
+    EllipseArc arc,
+    Offset eraseCenter,
+    double eraseRadius,
+  ) {
+    const double resolution = pi / 180;
+    final steps = (arc.sweepAngle / resolution).ceil();
+
+    for (int i = 0; i <= steps; i++) {
+      final angle = arc.startAngle + i * resolution;
+      final point = Offset(
+        arc.center.dx + arc.radiusX * cos(angle),
+        arc.center.dy + arc.radiusY * sin(angle),
+      );
+
+      if ((point - eraseCenter).distance <= eraseRadius) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  List<EllipseArc> splitEllipseArcIntoArcs(
+    EllipseArc arc,
+    Offset eraseCenter,
+    double eraseRadius,
+  ) {
+    const double resolution = pi / 180;
+    final steps = (arc.sweepAngle / resolution).ceil();
+
+    List<EllipseArc> result = [];
+    double? currentStart;
+    double currentSweep = 0;
+
+    for (int i = 0; i <= steps; i++) {
+      final angle = arc.startAngle + i * resolution;
+      final point = Offset(
+        arc.center.dx + arc.radiusX * cos(angle),
+        arc.center.dy + arc.radiusY * sin(angle),
+      );
+
+      final isOutside = (point - eraseCenter).distance > eraseRadius;
+
+      if (isOutside) {
+        currentStart ??= angle;
+        currentSweep += resolution;
+      } else {
+        if (currentStart != null && currentSweep > 0) {
+          result.add(
+            EllipseArc(
+              center: arc.center,
+              radiusX: arc.radiusX,
+              radiusY: arc.radiusY,
+              startAngle: currentStart,
+              sweepAngle: currentSweep,
+            ),
+          );
+          currentStart = null;
+          currentSweep = 0;
+        }
+      }
+    }
+
+    // Final leftover
+    if (currentStart != null && currentSweep > 0) {
+      result.add(
+        EllipseArc(
+          center: arc.center,
+          radiusX: arc.radiusX,
+          radiusY: arc.radiusY,
+          startAngle: currentStart,
+          sweepAngle: currentSweep,
+        ),
+      );
+    }
+
+    return result;
   }
 
   List<Arc> splitArcIntoArcs(Arc arc, Offset eraseCenter, double eraseRadius) {

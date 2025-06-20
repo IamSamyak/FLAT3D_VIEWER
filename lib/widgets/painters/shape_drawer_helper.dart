@@ -2,6 +2,7 @@ import 'package:flat3d_viewer/models/arc.dart';
 import 'package:flat3d_viewer/models/circle_shape.dart';
 import 'package:flat3d_viewer/models/drawing_layer.dart';
 import 'package:flat3d_viewer/models/ellipse_shape.dart';
+import 'package:flat3d_viewer/models/ellipse_arc.dart'; // ✅ New import
 import 'package:flat3d_viewer/models/line.dart';
 import 'package:flat3d_viewer/models/rectangle_shape.dart';
 import 'package:flutter/material.dart';
@@ -83,6 +84,21 @@ void drawShapesAndLayers(Canvas canvas, List<DrawingLayer> layers, Offset axisOr
       canvas.drawArc(rect, arc.startAngle, arc.sweepAngle, false, arcPaint);
       drawCoordinateText(canvas, center, axisOrigin, gridSpacing);
     }
+
+    final ellipseArcPaint = Paint()
+      ..color = Colors.deepPurple
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    for (final arc in layer.ellipseArcs) {
+      final rect = Rect.fromCenter(
+        center: arc.center + panOffset,
+        width: arc.radiusX * 2,
+        height: arc.radiusY * 2,
+      );
+      canvas.drawArc(rect, arc.startAngle, arc.sweepAngle, false, ellipseArcPaint);
+      drawCoordinateText(canvas, arc.center + panOffset, axisOrigin, gridSpacing);
+    }
   }
 }
 
@@ -96,8 +112,11 @@ void drawPendingShapes(
   CircleShape? circle,
   EllipseShape? ellipse,
   Arc? arc,
+  EllipseArc? ellipseArc, // ✅ New optional param
 ) {
-  final pendingPaint = Paint()..style = PaintingStyle.stroke..strokeWidth = 2;
+  final pendingPaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2;
 
   if (line != null) {
     pendingPaint.color = Colors.blue;
@@ -134,5 +153,16 @@ void drawPendingShapes(
     final rect = Rect.fromCircle(center: arc.center + panOffset, radius: arc.radius);
     canvas.drawArc(rect, arc.startAngle, arc.sweepAngle, false, pendingPaint);
     drawCoordinateText(canvas, arc.center + panOffset, axisOrigin, gridSpacing);
+  }
+
+  if (ellipseArc != null) {
+    pendingPaint.color = Colors.deepPurple;
+    final rect = Rect.fromCenter(
+      center: ellipseArc.center + panOffset,
+      width: ellipseArc.radiusX * 2,
+      height: ellipseArc.radiusY * 2,
+    );
+    canvas.drawArc(rect, ellipseArc.startAngle, ellipseArc.sweepAngle, false, pendingPaint);
+    drawCoordinateText(canvas, ellipseArc.center + panOffset, axisOrigin, gridSpacing);
   }
 }

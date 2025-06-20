@@ -1,16 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flat3d_viewer/models/tool_mode.dart';
-import 'package:flat3d_viewer/models/view_mode.dart';
-import 'package:flat3d_viewer/models/line_segment.dart';
-import 'package:flat3d_viewer/models/line.dart';
-import 'package:flat3d_viewer/models/rectangle_shape.dart';
-import 'package:flat3d_viewer/models/circle_shape.dart';
-import 'package:flat3d_viewer/models/ellipse_shape.dart';
-import 'package:flat3d_viewer/models/arc.dart';
 import 'package:flat3d_viewer/models/drawing_layer.dart';
-import 'package:flat3d_viewer/services/drawing_service.dart';
 import 'package:flat3d_viewer/widgets/painters/drawing_painter.dart';
 import 'package:flat3d_viewer/widgets/drawers/drawing_board_drawers.dart';
+import 'package:flat3d_viewer/controllers/drawing_board_controller.dart';
 
 class DrawingBoard extends StatefulWidget {
   const DrawingBoard({super.key});
@@ -27,232 +20,18 @@ class _DrawingBoardState extends State<DrawingBoard> {
   bool _isToolDrawerOpen = false;
   bool _isViewDrawerOpen = false;
 
-  late DrawingService _drawingService;
-
+  late DrawingBoardController controller;
   final List<DrawingLayer> _layers = [DrawingLayer(name: 'Layer 1')];
-  int _activeLayerIndex = 0;
-
-  ToolMode _toolMode = ToolMode.draw;
-  ViewMode _currentView = ViewMode.top;
-
-  Offset? _startPoint;
-  Offset? _eraserPosition;
-  Offset _panOffset = Offset.zero;
-  Offset? _lastPanPosition;
-
-  Line? _pendingLine;
-  RectangleShape? _pendingRectangle;
-  CircleShape? _pendingCircle;
-  EllipseShape? _pendingEllipse;
-  Arc? _pendingArc;
-
-  DrawingLayer get _activeLayer => _layers[_activeLayerIndex];
 
   @override
   void initState() {
     super.initState();
-    _drawingService = DrawingService(
+    controller = DrawingBoardController(
       gridSpacing: gridSpacing,
       toolsPanelWidth: toolsPanelWidth,
+      layers: _layers,
     );
   }
-
-  void _startDraw(Offset point) {
-    final snapped = _drawingService.snapToGrid(point - _panOffset);
-    if (_activeLayer.isLocked) return;
-
-    if (_toolMode == ToolMode.erase) {
-      _handleErase(snapped);
-    } else if (_toolMode == ToolMode.line) {
-      _pendingLine = Line(start: snapped, end: snapped);
-    } else if (_toolMode == ToolMode.rectangle) {
-      _pendingRectangle = RectangleShape(
-        topLeft: snapped,
-        bottomRight: snapped,
-      );
-    } else if (_toolMode == ToolMode.circle) {
-      _pendingCircle = CircleShape(center: snapped, radius: 0);
-    } else if (_toolMode == ToolMode.ellipse) {
-      _pendingEllipse = EllipseShape(topLeft: snapped, bottomRight: snapped);
-    } else if (_toolMode == ToolMode.pan) {
-      _lastPanPosition = point;
-    } else {
-      _startPoint = snapped;
-    }
-  }
-
-  void _updateDraw(Offset point) {
-    if (_toolMode == ToolMode.pan) {
-      if (_lastPanPosition != null) {
-        final delta = point - _lastPanPosition!;
-        final tentativeOffset = _panOffset + delta;
-
-        setState(() {
-          _panOffset = Offset(
-            (tentativeOffset.dx / gridSpacing).round() * gridSpacing,
-            (tentativeOffset.dy / gridSpacing).round() * gridSpacing,
-          );
-          _lastPanPosition = point;
-        });
-      }
-      return;
-    }
-
-    final snapped = _drawingService.snapToGrid(point - _panOffset);
-    if (_activeLayer.isLocked) return;
-
-    if (_toolMode == ToolMode.erase) {
-      setState(() {
-        _eraserPosition = point;
-        _handleErase(snapped);
-      });
-    } else if (_toolMode == ToolMode.line && _pendingLine != null) {
-      setState(() {
-        _pendingLine = Line(start: _pendingLine!.start, end: snapped);
-      });
-    } else if (_toolMode == ToolMode.rectangle && _pendingRectangle != null) {
-      setState(() {
-        _pendingRectangle = RectangleShape(
-          topLeft: _pendingRectangle!.topLeft,
-          bottomRight: snapped,
-        );
-      });
-    } else if (_toolMode == ToolMode.circle && _pendingCircle != null) {
-      setState(() {
-        final rawDistance = (snapped - _pendingCircle!.center).distance;
-        final unitCount = (rawDistance / gridSpacing).round();
-        final quantizedRadius = unitCount * gridSpacing;
-        _pendingCircle = CircleShape(
-          center: _pendingCircle!.center,
-          radius: quantizedRadius,
-        );
-      });
-    } else if (_toolMode == ToolMode.ellipse && _pendingEllipse != null) {
-      setState(() {
-        _pendingEllipse = EllipseShape(
-          topLeft: _pendingEllipse!.topLeft,
-          bottomRight: snapped,
-        );
-      });
-    } else if (_startPoint != null) {
-      setState(() {
-        _activeLayer.lines.add(LineSegment(start: _startPoint!, end: snapped));
-        _startPoint = snapped;
-      });
-    }
-  }
-
-  void _endDraw() {
-    if (_toolMode == ToolMode.pan) {
-      _lastPanPosition = null;
-      return;
-    }
-
-    if (_activeLayer.isLocked) return;
-
-    if (_toolMode == ToolMode.line && _pendingLine != null) {
-      setState(() {
-        _activeLayer.lines.add(
-          LineSegment(start: _pendingLine!.start, end: _pendingLine!.end),
-        );
-        _pendingLine = null;
-      });
-    } else if (_toolMode == ToolMode.rectangle && _pendingRectangle != null) {
-      setState(() {
-        _activeLayer.rectangles.add(_pendingRectangle!);
-        _pendingRectangle = null;
-      });
-    } else if (_toolMode == ToolMode.circle && _pendingCircle != null) {
-      setState(() {
-        _activeLayer.circles.add(_pendingCircle!);
-        _pendingCircle = null;
-      });
-    } else if (_toolMode == ToolMode.ellipse && _pendingEllipse != null) {
-      setState(() {
-        _activeLayer.ellipses.add(_pendingEllipse!);
-        _pendingEllipse = null;
-      });
-    }
-
-    _startPoint = null;
-  }
-
-  void _handleErase(Offset erasePoint) {
-  const double radius = 15;
-
-  List<LineSegment> updatedLines = [];
-  List<RectangleShape> remainingRectangles = [];
-  List<CircleShape> remainingCircles = [];
-  List<Arc> updatedArcs = [];
-
-  // Handle lines
-  for (var line in _activeLayer.lines) {
-    if (_drawingService.lineIntersectsCircle(line.start, line.end, erasePoint, radius)) {
-      updatedLines.addAll(
-        _drawingService.splitLineAroundCircle(line.start, line.end, erasePoint, radius),
-      );
-    } else {
-      updatedLines.add(line);
-    }
-  }
-
-  // Handle rectangles
-  for (var rect in _activeLayer.rectangles) {
-    final topLeft = rect.topLeft;
-    final bottomRight = rect.bottomRight;
-    final topRight = Offset(bottomRight.dx, topLeft.dy);
-    final bottomLeft = Offset(topLeft.dx, bottomRight.dy);
-
-    final edges = [
-      LineSegment(start: topLeft, end: topRight),
-      LineSegment(start: topRight, end: bottomRight),
-      LineSegment(start: bottomRight, end: bottomLeft),
-      LineSegment(start: bottomLeft, end: topLeft),
-    ];
-
-    bool erased = false;
-    for (var edge in edges) {
-      if (_drawingService.lineIntersectsCircle(edge.start, edge.end, erasePoint, radius)) {
-        updatedLines.addAll(
-          _drawingService.splitLineAroundCircle(edge.start, edge.end, erasePoint, radius),
-        );
-        erased = true;
-      } else {
-        updatedLines.add(edge);
-      }
-    }
-
-    if (!erased) remainingRectangles.add(rect);
-  }
-
-  // Handle circles
-  for (var circle in _activeLayer.circles) {
-    if (_drawingService.circleIntersectsEraser(circle.center, circle.radius, erasePoint, radius)) {
-      final arcs = _drawingService.splitCircleIntoArcs(circle.center, circle.radius, erasePoint, radius);
-      updatedArcs.addAll(arcs); // add visible arcs
-    } else {
-      remainingCircles.add(circle);
-    }
-  }
-
-  // ✅ NEW: Handle arcs
-  for (var arc in _activeLayer.arcs) {
-    if (_drawingService.arcIntersectsEraser(arc, erasePoint, radius)) {
-      final splitArcs = _drawingService.splitArcIntoArcs(arc, erasePoint, radius);
-      updatedArcs.addAll(splitArcs);
-    } else {
-      updatedArcs.add(arc);
-    }
-  }
-
-  // Update state
-  setState(() {
-    _activeLayer.lines = updatedLines;
-    _activeLayer.rectangles = remainingRectangles;
-    _activeLayer.circles = remainingCircles;
-    _activeLayer.arcs = updatedArcs;
-  });
-}
 
   @override
   Widget build(BuildContext context) {
@@ -261,9 +40,9 @@ class _DrawingBoardState extends State<DrawingBoard> {
       body: Stack(
         children: [
           GestureDetector(
-            onPanStart: (details) => _startDraw(details.localPosition),
-            onPanUpdate: (details) => _updateDraw(details.localPosition),
-            onPanEnd: (_) => _endDraw(),
+            onPanStart: (details) => controller.startDraw(details.localPosition),
+            onPanUpdate: (details) => controller.updateDraw(details.localPosition, () => setState(() {})),
+            onPanEnd: (_) => controller.endDraw(() => setState(() {})),
             child: Row(
               children: [
                 Expanded(
@@ -271,16 +50,17 @@ class _DrawingBoardState extends State<DrawingBoard> {
                     painter: DrawingPainter(
                       layers: _layers,
                       gridSpacing: gridSpacing,
-                      showEraser: _toolMode == ToolMode.erase,
-                      eraserPosition: _eraserPosition,
+                      showEraser: controller.toolMode == ToolMode.erase,
+                      eraserPosition: controller.eraserPosition,
                       eraserRadius: 15,
-                      pendingLine: _pendingLine,
-                      pendingRectangle: _pendingRectangle,
-                      pendingCircle: _pendingCircle,
-                      pendingEllipse: _pendingEllipse,
-                      pendingArc: _pendingArc,
-                      currentView: _currentView,
-                      panOffset: _panOffset,
+                      pendingLine: controller.pendingLine,
+                      pendingRectangle: controller.pendingRectangle,
+                      pendingCircle: controller.pendingCircle,
+                      pendingEllipse: controller.pendingEllipse,
+                      pendingArc: controller.pendingArc,
+                      currentView: controller.currentView,
+                      panOffset: controller.panOffset,
+                      pendingEllipseArc: controller.pendingEllipseArc,
                     ),
                     child: Container(),
                   ),
@@ -290,38 +70,40 @@ class _DrawingBoardState extends State<DrawingBoard> {
           ),
           DrawingBoardDrawers(
             layers: _layers,
-            activeLayerIndex: _activeLayerIndex,
+            activeLayerIndex: controller.activeLayerIndex,
             isToolDrawerOpen: _isToolDrawerOpen,
             isLayerDrawerOpen: _isLayerDrawerOpen,
             isViewDrawerOpen: _isViewDrawerOpen,
-            currentTool: _toolMode,
-            currentView: _currentView,
-            onLayerSelected: (index) => setState(() => _activeLayerIndex = index),
+            currentTool: controller.toolMode,
+            currentView: controller.currentView,
+            onLayerSelected: (index) => setState(() => controller.activeLayerIndex = index),
             onToggleLayerDrawer: () => setState(() => _isLayerDrawerOpen = !_isLayerDrawerOpen),
             onAddLayer: () {
               setState(() {
-                _layers.add(DrawingLayer(name: 'Layer ${_layers.length + 1}'));
-                _activeLayerIndex = _layers.length - 1;
+                _layers.add(DrawingLayer(name: 'Layer \${_layers.length + 1}'));
+                controller.activeLayerIndex = _layers.length - 1;
               });
             },
             onDeleteLayer: (index) {
               if (_layers.length > 1) {
                 setState(() {
                   _layers.removeAt(index);
-                  _activeLayerIndex = _activeLayerIndex.clamp(0, _layers.length - 1);
+                  controller.activeLayerIndex = controller.activeLayerIndex.clamp(0, _layers.length - 1);
                 });
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("At least one layer must remain.")),
+                  const SnackBar(
+                    content: Text("At least one layer must remain."),
+                  ),
                 );
               }
             },
             onToggleLayerLock: (index) {
               setState(() => _layers[index].isLocked = !_layers[index].isLocked);
             },
-            onToolSelected: (mode) => setState(() => _toolMode = mode),
+            onToolSelected: (mode) => setState(() => controller.toolMode = mode),
             onToggleToolDrawer: () => setState(() => _isToolDrawerOpen = !_isToolDrawerOpen),
-            onViewSelected: (view) => setState(() => _currentView = view),
+            onViewSelected: (view) => setState(() => controller.currentView = view),
             onToggleViewDrawer: () => setState(() => _isViewDrawerOpen = !_isViewDrawerOpen),
           ),
         ],
