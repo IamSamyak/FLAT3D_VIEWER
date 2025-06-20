@@ -79,8 +79,15 @@ class _DrawingBoardState extends State<DrawingBoard> {
   void _updateDraw(Offset point) {
     if (_toolMode == ToolMode.pan) {
       if (_lastPanPosition != null) {
+        final delta = point - _lastPanPosition!;
+        final tentativeOffset = _panOffset + delta;
+
+        // Snap pan offset to nearest multiple of gridSpacing
         setState(() {
-          _panOffset += point - _lastPanPosition!;
+          _panOffset = Offset(
+            (tentativeOffset.dx / gridSpacing).round() * gridSpacing,
+            (tentativeOffset.dy / gridSpacing).round() * gridSpacing,
+          );
           _lastPanPosition = point;
         });
       }
