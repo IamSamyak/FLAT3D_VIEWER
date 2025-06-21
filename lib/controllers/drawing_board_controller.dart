@@ -43,8 +43,8 @@ class DrawingBoardController {
     required this.toolsPanelWidth,
     required List<DrawingLayer> initialLayers,
   }) : viewLayers = {
-          for (var view in ViewMode.values) view: [...initialLayers]
-        } {
+         for (var view in ViewMode.values) view: [...initialLayers],
+       } {
     drawingService = DrawingService(
       gridSpacing: gridSpacing,
       toolsPanelWidth: toolsPanelWidth,
@@ -55,32 +55,36 @@ class DrawingBoardController {
 
   DrawingLayer get activeLayer => currentLayers[activeLayerIndex];
 
+  Offset _defaultTopOrigin(Size size) => Offset(size.width - 40.0, 40.0);
+
   Offset _getAxisOrigin(Size size) {
-    const padding = 40.0;
-    switch (_currentView) {
-      case ViewMode.front:
-        return Offset(size.width - padding, size.height - padding);
-      case ViewMode.top:
-        return Offset(size.width - padding, padding);
-      default:
-        return Offset(size.width / 2, size.height / 2);
-    }
+    return _defaultTopOrigin(size); // Always use top origin as the base
   }
 
   void setViewMode(ViewMode newView, Size canvasSize) {
-    if (_currentView != newView) {
-      _currentView = newView;
+    if (_currentView == newView) return;
 
-      const padding = 40.0;
-      final targetOrigin = switch (newView) {
-        ViewMode.front => Offset(canvasSize.width - padding, canvasSize.height - padding),
-        ViewMode.top => Offset(canvasSize.width - padding, padding),
-        _ => Offset(canvasSize.width / 2, canvasSize.height / 2),
-      };
+    final padding = 40.0;
+    final topOrigin = _defaultTopOrigin(canvasSize); // Always the same
+    Offset newViewOrigin;
 
-      final currentOrigin = _getAxisOrigin(canvasSize);
-      panOffset = targetOrigin - currentOrigin;
+    switch (newView) {
+      case ViewMode.front:
+        newViewOrigin = Offset(
+          canvasSize.width - padding,
+          canvasSize.height - padding,
+        );
+        break;
+      case ViewMode.top:
+        newViewOrigin = topOrigin;
+        break;
+      default:
+        newViewOrigin = Offset(canvasSize.width / 2, canvasSize.height / 2);
+        break;
     }
+
+    panOffset = newViewOrigin - topOrigin; // Always use top as base
+    _currentView = newView;
   }
 
   bool _isPointAllowed(Offset point, Size size) {
@@ -101,7 +105,10 @@ class DrawingBoardController {
         pendingLine = Line(start: snapped, end: snapped);
         break;
       case ToolMode.rectangle:
-        pendingRectangle = RectangleShape(topLeft: snapped, bottomRight: snapped);
+        pendingRectangle = RectangleShape(
+          topLeft: snapped,
+          bottomRight: snapped,
+        );
         break;
       case ToolMode.circle:
         pendingCircle = CircleShape(center: snapped, radius: 0);
@@ -196,7 +203,9 @@ class DrawingBoardController {
     switch (toolMode) {
       case ToolMode.line:
         if (pendingLine != null) {
-          activeLayer.lines.add(LineSegment(start: pendingLine!.start, end: pendingLine!.end));
+          activeLayer.lines.add(
+            LineSegment(start: pendingLine!.start, end: pendingLine!.end),
+          );
           pendingLine = null;
           onUpdate();
         }
@@ -238,14 +247,25 @@ class DrawingBoardController {
     final updatedEllipseArcs = <EllipseArc>[];
 
     for (var ellipse in activeLayer.ellipses) {
-      if (drawingService.ellipseIntersectsEraser(ellipse.topLeft, ellipse.bottomRight, erasePoint, radius)) {
+      if (drawingService.ellipseIntersectsEraser(
+        ellipse.topLeft,
+        ellipse.bottomRight,
+        erasePoint,
+        radius,
+      )) {
         final center = Offset(
           (ellipse.topLeft.dx + ellipse.bottomRight.dx) / 2,
           (ellipse.topLeft.dy + ellipse.bottomRight.dy) / 2,
         );
         final radiusX = (ellipse.bottomRight.dx - ellipse.topLeft.dx).abs() / 2;
         final radiusY = (ellipse.bottomRight.dy - ellipse.topLeft.dy).abs() / 2;
-        final arcs = drawingService.splitEllipseIntoArcs(center, radiusX, radiusY, erasePoint, radius);
+        final arcs = drawingService.splitEllipseIntoArcs(
+          center,
+          radiusX,
+          radiusY,
+          erasePoint,
+          radius,
+        );
         updatedEllipseArcs.addAll(arcs);
       } else {
         remainingEllipses.add(ellipse);
@@ -254,7 +274,11 @@ class DrawingBoardController {
 
     for (var arc in activeLayer.ellipseArcs) {
       if (drawingService.ellipseArcIntersectsEraser(arc, erasePoint, radius)) {
-        final splitArcs = drawingService.splitEllipseArcIntoArcs(arc, erasePoint, radius);
+        final splitArcs = drawingService.splitEllipseArcIntoArcs(
+          arc,
+          erasePoint,
+          radius,
+        );
         updatedEllipseArcs.addAll(splitArcs);
       } else {
         updatedEllipseArcs.add(arc);
@@ -262,8 +286,20 @@ class DrawingBoardController {
     }
 
     for (var line in activeLayer.lines) {
-      if (drawingService.lineIntersectsCircle(line.start, line.end, erasePoint, radius)) {
-        updatedLines.addAll(drawingService.splitLineAroundCircle(line.start, line.end, erasePoint, radius));
+      if (drawingService.lineIntersectsCircle(
+        line.start,
+        line.end,
+        erasePoint,
+        radius,
+      )) {
+        updatedLines.addAll(
+          drawingService.splitLineAroundCircle(
+            line.start,
+            line.end,
+            erasePoint,
+            radius,
+          ),
+        );
       } else {
         updatedLines.add(line);
       }
@@ -284,8 +320,20 @@ class DrawingBoardController {
 
       bool erased = false;
       for (var edge in edges) {
-        if (drawingService.lineIntersectsCircle(edge.start, edge.end, erasePoint, radius)) {
-          updatedLines.addAll(drawingService.splitLineAroundCircle(edge.start, edge.end, erasePoint, radius));
+        if (drawingService.lineIntersectsCircle(
+          edge.start,
+          edge.end,
+          erasePoint,
+          radius,
+        )) {
+          updatedLines.addAll(
+            drawingService.splitLineAroundCircle(
+              edge.start,
+              edge.end,
+              erasePoint,
+              radius,
+            ),
+          );
           erased = true;
         } else {
           updatedLines.add(edge);
@@ -296,8 +344,18 @@ class DrawingBoardController {
     }
 
     for (var circle in activeLayer.circles) {
-      if (drawingService.circleIntersectsEraser(circle.center, circle.radius, erasePoint, radius)) {
-        final arcs = drawingService.splitCircleIntoArcs(circle.center, circle.radius, erasePoint, radius);
+      if (drawingService.circleIntersectsEraser(
+        circle.center,
+        circle.radius,
+        erasePoint,
+        radius,
+      )) {
+        final arcs = drawingService.splitCircleIntoArcs(
+          circle.center,
+          circle.radius,
+          erasePoint,
+          radius,
+        );
         updatedArcs.addAll(arcs);
       } else {
         remainingCircles.add(circle);
@@ -306,7 +364,11 @@ class DrawingBoardController {
 
     for (var arc in activeLayer.arcs) {
       if (drawingService.arcIntersectsEraser(arc, erasePoint, radius)) {
-        final splitArcs = drawingService.splitArcIntoArcs(arc, erasePoint, radius);
+        final splitArcs = drawingService.splitArcIntoArcs(
+          arc,
+          erasePoint,
+          radius,
+        );
         updatedArcs.addAll(splitArcs);
       } else {
         updatedArcs.add(arc);
