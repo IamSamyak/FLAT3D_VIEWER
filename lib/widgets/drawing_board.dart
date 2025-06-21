@@ -1,3 +1,4 @@
+import 'package:flat3d_viewer/widgets/object_3d_preview_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flat3d_viewer/models/tool_mode.dart';
 import 'package:flat3d_viewer/models/drawing_layer.dart';
@@ -9,10 +10,15 @@ class DrawingBoard extends StatefulWidget {
   const DrawingBoard({super.key});
 
   @override
-  _DrawingBoardState createState() => _DrawingBoardState();
+  DrawingBoardState createState() => DrawingBoardState();
+
+  static DrawingBoardState? of(BuildContext context) {
+    final state = context.findAncestorStateOfType<DrawingBoardState>();
+    return state;
+  }
 }
 
-class _DrawingBoardState extends State<DrawingBoard> {
+class DrawingBoardState extends State<DrawingBoard> {
   final double gridSpacing = 20.0;
   final double toolsPanelWidth = 100.0;
 
@@ -22,10 +28,11 @@ class _DrawingBoardState extends State<DrawingBoard> {
 
   late DrawingBoardController controller;
 
+  DrawingBoardController getController() => controller;
+
   @override
   void initState() {
     super.initState();
-
     final initialLayers = [DrawingLayer(name: 'Layer 1')];
     controller = DrawingBoardController(
       gridSpacing: gridSpacing,
@@ -43,41 +50,45 @@ class _DrawingBoardState extends State<DrawingBoard> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final size = Size(constraints.maxWidth, constraints.maxHeight);
+
           return Stack(
             children: [
               GestureDetector(
                 onPanStart: (details) =>
                     controller.startDraw(details.localPosition, size),
-                onPanUpdate: (details) =>
-                    controller.updateDraw(details.localPosition, size, () => setState(() {})),
-                onPanEnd: (_) =>
-                    controller.endDraw(() => setState(() {})),
+                onPanUpdate: (details) => controller.updateDraw(
+                      details.localPosition,
+                      size,
+                      () => setState(() {}),
+                    ),
+                onPanEnd: (_) => controller.endDraw(() => setState(() {})),
                 child: Row(
                   children: [
                     Expanded(
-                      child: CustomPaint(
-                        painter: DrawingPainter(
-                          layers: currentLayers,
-                          gridSpacing: gridSpacing,
-                          showEraser: controller.toolMode == ToolMode.erase,
-                          eraserPosition: controller.eraserPosition,
-                          eraserRadius: 15,
-                          pendingLine: controller.pendingLine,
-                          pendingRectangle: controller.pendingRectangle,
-                          pendingCircle: controller.pendingCircle,
-                          pendingEllipse: controller.pendingEllipse,
-                          pendingArc: controller.pendingArc,
-                          pendingEllipseArc: controller.pendingEllipseArc,
-                          panOffset: controller.panOffset,
+                      child: RepaintBoundary(
+                        child: CustomPaint(
+                          painter: DrawingPainter(
+                            layers: currentLayers,
+                            gridSpacing: gridSpacing,
+                            showEraser: controller.toolMode == ToolMode.erase,
+                            eraserPosition: controller.eraserPosition,
+                            eraserRadius: 15,
+                            pendingLine: controller.pendingLine,
+                            pendingRectangle: controller.pendingRectangle,
+                            pendingCircle: controller.pendingCircle,
+                            pendingEllipse: controller.pendingEllipse,
+                            pendingArc: controller.pendingArc,
+                            pendingEllipseArc: controller.pendingEllipseArc,
+                            panOffset: controller.panOffset,
+                          ),
+                          child: Container(),
                         ),
-                        child: Container(),
                       ),
                     ),
                   ],
                 ),
               ),
 
-              /// Tool / Layer / View drawers
               DrawingBoardDrawers(
                 layers: currentLayers,
                 activeLayerIndex: controller.activeLayerIndex,
@@ -86,19 +97,16 @@ class _DrawingBoardState extends State<DrawingBoard> {
                 isViewDrawerOpen: _isViewDrawerOpen,
                 currentTool: controller.toolMode,
                 currentView: controller.currentView,
-
                 onLayerSelected: (index) {
                   setState(() {
                     controller.activeLayerIndex = index;
                   });
                 },
-
                 onToggleLayerDrawer: () {
                   setState(() {
                     _isLayerDrawerOpen = !_isLayerDrawerOpen;
                   });
                 },
-
                 onAddLayer: () {
                   setState(() {
                     final current = controller.currentLayers;
@@ -106,7 +114,6 @@ class _DrawingBoardState extends State<DrawingBoard> {
                     controller.activeLayerIndex = current.length - 1;
                   });
                 },
-
                 onDeleteLayer: (index) {
                   final current = controller.currentLayers;
                   if (current.length > 1) {
@@ -123,37 +130,56 @@ class _DrawingBoardState extends State<DrawingBoard> {
                     );
                   }
                 },
-
                 onToggleLayerLock: (index) {
                   setState(() {
                     controller.currentLayers[index].isLocked =
                         !controller.currentLayers[index].isLocked;
                   });
                 },
-
                 onToolSelected: (mode) {
                   setState(() {
                     controller.toolMode = mode;
                   });
                 },
-
                 onToggleToolDrawer: () {
                   setState(() {
                     _isToolDrawerOpen = !_isToolDrawerOpen;
                   });
                 },
-
                 onViewSelected: (view) {
                   setState(() {
                     controller.setViewMode(view, size);
                   });
                 },
-
                 onToggleViewDrawer: () {
                   setState(() {
                     _isViewDrawerOpen = !_isViewDrawerOpen;
                   });
                 },
+              ),
+
+              // Floating preview 3D button
+              Positioned(
+                bottom: 20,
+                right: 20,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => Object3DPreviewScreen(
+                          drawingBoardKey: widget.key as GlobalKey<DrawingBoardState>,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.view_in_ar),
+                  label: const Text('Preview 3D'),
+                ),
               ),
             ],
           );

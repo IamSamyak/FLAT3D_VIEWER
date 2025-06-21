@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'widgets/drawing_board.dart';
+import 'package:flat3d_viewer/widgets/drawing_board.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -9,6 +9,8 @@ void main() async {
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
+
+  final GlobalKey<DrawingBoardState> drawingBoardKey = GlobalKey();
 
   runApp(
     MaterialApp(
@@ -20,10 +22,9 @@ void main() async {
           background: Colors.white,
         ),
         scaffoldBackgroundColor: Colors.white,
-        useMaterial3: false, // Optional: disables Material3 defaults
+        useMaterial3: false,
       ),
-      home: const DrawingBoard(),
+      home: DrawingBoard(key: drawingBoardKey),
     ),
   );
 }
-
