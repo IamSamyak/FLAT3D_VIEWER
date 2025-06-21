@@ -68,7 +68,6 @@ class _DrawingBoardState extends State<DrawingBoard> {
                           pendingEllipse: controller.pendingEllipse,
                           pendingArc: controller.pendingArc,
                           pendingEllipseArc: controller.pendingEllipseArc,
-                          currentView: controller.currentView,
                           panOffset: controller.panOffset,
                         ),
                         child: Container(),
@@ -103,7 +102,7 @@ class _DrawingBoardState extends State<DrawingBoard> {
                 onAddLayer: () {
                   setState(() {
                     final current = controller.currentLayers;
-                    current.add(DrawingLayer(name: 'Layer \${current.length + 1}'));
+                    current.add(DrawingLayer(name: 'Layer ${current.length + 1}'));
                     controller.activeLayerIndex = current.length - 1;
                   });
                 },
@@ -146,7 +145,7 @@ class _DrawingBoardState extends State<DrawingBoard> {
 
                 onViewSelected: (view) {
                   setState(() {
-                    controller.currentView = view;
+                    controller.setViewMode(view, size);
                   });
                 },
 

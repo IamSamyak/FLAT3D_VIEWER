@@ -2,10 +2,9 @@ import 'package:flat3d_viewer/models/arc.dart';
 import 'package:flat3d_viewer/models/circle_shape.dart';
 import 'package:flat3d_viewer/models/drawing_layer.dart';
 import 'package:flat3d_viewer/models/ellipse_shape.dart';
-import 'package:flat3d_viewer/models/ellipse_arc.dart'; // ✅ import EllipseArc
+import 'package:flat3d_viewer/models/ellipse_arc.dart';
 import 'package:flat3d_viewer/models/line.dart';
 import 'package:flat3d_viewer/models/rectangle_shape.dart';
-import 'package:flat3d_viewer/models/view_mode.dart';
 import 'package:flutter/material.dart';
 
 import 'grid_painter_helper.dart';
@@ -25,9 +24,7 @@ class DrawingPainter extends CustomPainter {
   final CircleShape? pendingCircle;
   final EllipseShape? pendingEllipse;
   final Arc? pendingArc;
-  final EllipseArc? pendingEllipseArc; // ✅ NEW
-
-  final ViewMode currentView;
+  final EllipseArc? pendingEllipseArc;
 
   DrawingPainter({
     required this.layers,
@@ -35,33 +32,21 @@ class DrawingPainter extends CustomPainter {
     required this.showEraser,
     required this.eraserPosition,
     required this.eraserRadius,
-    required this.currentView,
     required this.panOffset,
     this.pendingLine,
     this.pendingRectangle,
     this.pendingCircle,
     this.pendingEllipse,
     this.pendingArc,
-    this.pendingEllipseArc, // ✅ NEW
+    this.pendingEllipseArc,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     const padding = 40.0;
-    late Offset origin;
 
-    switch (currentView) {
-      case ViewMode.front:
-        origin = Offset(size.width - padding, size.height - padding);
-        break;
-      case ViewMode.top:
-        origin = Offset(size.width - padding, padding);
-        break;
-      default:
-        origin = Offset(size.width / 2, size.height / 2);
-        break;
-    }
-
+    // ✅ Always fixed origin
+    final origin =Offset(size.width - padding, padding);
     final axisOrigin = origin + panOffset;
 
     drawGrid(canvas, size, panOffset, gridSpacing);
@@ -78,7 +63,7 @@ class DrawingPainter extends CustomPainter {
       pendingCircle,
       pendingEllipse,
       pendingArc,
-      pendingEllipseArc, // ✅ pass it to helper
+      pendingEllipseArc,
     );
 
     if (showEraser && eraserPosition != null) {

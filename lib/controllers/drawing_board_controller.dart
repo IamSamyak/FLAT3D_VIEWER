@@ -10,7 +10,7 @@ import 'package:flat3d_viewer/models/ellipse_arc.dart';
 import 'package:flat3d_viewer/models/arc.dart';
 import 'package:flat3d_viewer/models/drawing_layer.dart';
 import 'package:flat3d_viewer/services/drawing_service.dart';
-import 'package:flat3d_viewer/services/drawing_constraint_helper.dart'; // new import
+import 'package:flat3d_viewer/services/drawing_constraint_helper.dart';
 
 class DrawingBoardController {
   final double gridSpacing;
@@ -20,7 +20,9 @@ class DrawingBoardController {
 
   int activeLayerIndex = 0;
   ToolMode toolMode = ToolMode.draw;
-  ViewMode currentView = ViewMode.top;
+
+  ViewMode _currentView = ViewMode.top;
+  ViewMode get currentView => _currentView;
 
   Offset? startPoint;
   Offset? eraserPosition;
@@ -49,13 +51,13 @@ class DrawingBoardController {
     );
   }
 
-  List<DrawingLayer> get currentLayers => viewLayers[currentView]!;
+  List<DrawingLayer> get currentLayers => viewLayers[_currentView]!;
 
   DrawingLayer get activeLayer => currentLayers[activeLayerIndex];
 
   Offset _getAxisOrigin(Size size) {
     const padding = 40.0;
-    switch (currentView) {
+    switch (_currentView) {
       case ViewMode.front:
         return Offset(size.width - padding, size.height - padding);
       case ViewMode.top:
@@ -65,9 +67,25 @@ class DrawingBoardController {
     }
   }
 
+  void setViewMode(ViewMode newView, Size canvasSize) {
+    if (_currentView != newView) {
+      _currentView = newView;
+
+      const padding = 40.0;
+      final targetOrigin = switch (newView) {
+        ViewMode.front => Offset(canvasSize.width - padding, canvasSize.height - padding),
+        ViewMode.top => Offset(canvasSize.width - padding, padding),
+        _ => Offset(canvasSize.width / 2, canvasSize.height / 2),
+      };
+
+      final currentOrigin = _getAxisOrigin(canvasSize);
+      panOffset = targetOrigin - currentOrigin;
+    }
+  }
+
   bool _isPointAllowed(Offset point, Size size) {
     final axisOrigin = _getAxisOrigin(size) + panOffset;
-    return isPointAllowedInViewMode(point, axisOrigin, currentView);
+    return isPointAllowedInViewMode(point, axisOrigin, _currentView);
   }
 
   void startDraw(Offset point, Size size) {
