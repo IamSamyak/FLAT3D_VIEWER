@@ -10,11 +10,13 @@ import 'package:flat3d_viewer/models/ellipse_arc.dart';
 import 'package:flat3d_viewer/models/arc.dart';
 import 'package:flat3d_viewer/models/drawing_layer.dart';
 import 'package:flat3d_viewer/services/drawing_service.dart';
+import 'package:flat3d_viewer/services/drawing_constraint_helper.dart'; // new import
 
 class DrawingBoardController {
   final double gridSpacing;
   final double toolsPanelWidth;
-  final List<DrawingLayer> layers;
+
+  final Map<ViewMode, List<DrawingLayer>> viewLayers;
 
   int activeLayerIndex = 0;
   ToolMode toolMode = ToolMode.draw;
@@ -37,18 +39,40 @@ class DrawingBoardController {
   DrawingBoardController({
     required this.gridSpacing,
     required this.toolsPanelWidth,
-    required this.layers,
-  }) {
+    required List<DrawingLayer> initialLayers,
+  }) : viewLayers = {
+          for (var view in ViewMode.values) view: [...initialLayers]
+        } {
     drawingService = DrawingService(
       gridSpacing: gridSpacing,
       toolsPanelWidth: toolsPanelWidth,
     );
   }
 
-  DrawingLayer get activeLayer => layers[activeLayerIndex];
+  List<DrawingLayer> get currentLayers => viewLayers[currentView]!;
 
-  void startDraw(Offset point) {
+  DrawingLayer get activeLayer => currentLayers[activeLayerIndex];
+
+  Offset _getAxisOrigin(Size size) {
+    const padding = 40.0;
+    switch (currentView) {
+      case ViewMode.front:
+        return Offset(size.width - padding, size.height - padding);
+      case ViewMode.top:
+        return Offset(size.width - padding, padding);
+      default:
+        return Offset(size.width / 2, size.height / 2);
+    }
+  }
+
+  bool _isPointAllowed(Offset point, Size size) {
+    final axisOrigin = _getAxisOrigin(size) + panOffset;
+    return isPointAllowedInViewMode(point, axisOrigin, currentView);
+  }
+
+  void startDraw(Offset point, Size size) {
     final snapped = drawingService.snapToGrid(point - panOffset);
+    if (!_isPointAllowed(snapped + panOffset, size)) return;
     if (activeLayer.isLocked) return;
 
     switch (toolMode) {
@@ -75,7 +99,7 @@ class DrawingBoardController {
     }
   }
 
-  void updateDraw(Offset point, VoidCallback onUpdate) {
+  void updateDraw(Offset point, Size size, VoidCallback onUpdate) {
     if (toolMode == ToolMode.pan && lastPanPosition != null) {
       final delta = point - lastPanPosition!;
       final tentativeOffset = panOffset + delta;
@@ -89,6 +113,7 @@ class DrawingBoardController {
     }
 
     final snapped = drawingService.snapToGrid(point - panOffset);
+    if (!_isPointAllowed(snapped + panOffset, size)) return;
     if (activeLayer.isLocked) return;
 
     switch (toolMode) {
